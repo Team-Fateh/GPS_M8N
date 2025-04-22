@@ -8,10 +8,10 @@ Live GPS lap tracking and visualization system using Neo M8N module + Python.
   GPS data is received using the [NeoGPS](https://github.com/SlashDevin/NeoGPS) library, known for its high accuracy and low latency.
 
 - *Serial Communication*  
-  Data is sent from the microcontroller via the serial monitor and read on the host machine using the #serialpy# library.
+  Data is sent from the microcontroller via the serial monitor and read on the host machine using the *serialpy* library.
 
 - *Data Visualization*  
-  GPS coordinates are plotted using #matplotlib#. The first lap's data is used to create the track layout.
+  GPS coordinates are plotted using *matplotlib*. The first lap's data is used to create the track layout.
 
 - *Lap Counter*  
   A lap is detected when the live GPS location returns within a *0.00002 threshold (latitude/longitude)* of the original starting point.
