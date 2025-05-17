@@ -2,183 +2,228 @@ import matplotlib.pyplot as plt
 import numpy as np
 import serial
 import math
+import time
+import random
 
 latitudes = []
 longitudes = []
-offset = 0.000005  
+offset = 0.000010 
 
 lap_count = 0
-lap_threshold = 0.00002
+lap_threshold = 0.00003
 min_points_for_lap = 20  
 first_lap_completed = False
 first_lap_trajectory = None
+drawn_segments = []  # For colored trails
 
-arduinoData = serial.Serial('COM4', 9600)
 
-# Create figure and axis objects
-plt.ion()  
+lap_start_time = None
+last_lap_time = 0
+
+
+start_lat = None
+start_lon = None
+start_line = None
+start_line_drawn = False
+
+
+rpm_ranges = {
+    'green': (1000, 1999),
+    'yellow': (2000, 3999),
+    'red': (4000, 6000)
+}
+rpm_colors = ['green', 'yellow', 'red']
+current_rpm_color_index = 0
+last_rpm_switch_time = time.time()
+
+
+try:
+    arduinoData = serial.Serial('COM3', 9600)
+except Exception as e:
+    print(f"Failed to connect to Arduino: {e}")
+    arduinoData = None
+
+
+plt.ion() 
+plt.style.use('dark_background')
 fig, (ax, ax_info) = plt.subplots(1, 2, figsize=(15, 8), gridspec_kw={'width_ratios': [3, 1]})
 
-upper_line, = ax.plot([], [], 'r-', label='Upper Offset')
-lower_line, = ax.plot([], [], 'r-', label='Lower Offset')
-main_line, = ax.plot([], [], 'b-', label='Center Line')
+ax.plot([], [], color='green', linewidth=3, label='RPM < 2000')
+ax.plot([], [], color='yellow', linewidth=3, label='RPM 2000–3999')
+ax.plot([], [], color='red', linewidth=3, label='RPM ≥ 4000')
+upper_line, = ax.plot([], [], 'b-', label='Upper Offset')
+lower_line, = ax.plot([], [], 'b-', label='Lower Offset')
 
 scatter = ax.scatter([], [], s=100, c='blue', alpha=0.7, zorder=10, label='Current Position')
 
-# Setup plot appearance
+
 ax.set_xlabel('Longitude')
 ax.set_ylabel('Latitude')
 ax.set_title('GPS Trajectory')
 ax.grid(True, linestyle='-', alpha=0.6)
 ax.legend()
 
-# Setup info panel appearance
+
 ax_info.axis('off')
 ax_info.set_title('Lap Information')
-lap_text = ax_info.text(0.5, 0.5, f"Laps completed: {lap_count}", ha='center', va='center', fontsize=16)
+lap_text = ax_info.text(0.5, 0.65, f"Laps completed: {lap_count}", ha='center', va='center', fontsize=16)
+time_text = ax_info.text(0.5, 0.4, f"Last Lap Time: -- s", ha='center', va='center', fontsize=14)
 
-# Show the plot window
 plt.tight_layout()
 plt.show(block=False)
 
 def save_first_lap_trajectory(lats, longs, filename="first_lap_trajectory.npy"):
-    """
-    Save the first lap trajectory data to a file
-    """
     trajectory = np.array([lats, longs])
     np.save(filename, trajectory)
     print(f"First lap trajectory saved to {filename}")
     return trajectory
 
+def draw_virtual_start_line(lat, lon):
+    global start_line, start_line_drawn
+    delta = 0.00001
+    lat1 = lat + delta
+    lat2 = lat - delta
+    start_line, = ax.plot([lon, lon], [lat1, lat2], 'lime', linewidth=3, label='Virtual Start Line')
+    ax.legend()
+    start_line_drawn = True
+    print("Virtual start line created.")
+
 def update_lap_one():
-    """
-    Update the plot for the first lap - simple trajectory tracking
-    """
-    global latitudes, longitudes
-    
-    if len(latitudes) > 0:
-        # Update the main line with current trajectory
-        main_line.set_data(longitudes, latitudes)
-        
-        # Update scatter data with just the most recent position
-        scatter.set_offsets(np.array([[longitudes[-1], latitudes[-1]]]))
-    
-        # Adjust plot limits if needed
+    if len(latitudes) > 1:
+        lat1, lat2 = latitudes[-2], latitudes[-1]
+        lon1, lon2 = longitudes[-2], longitudes[-1]
+
+       
+        global current_rpm_color_index, last_rpm_switch_time
+        current_time = time.time()
+        if current_time - last_rpm_switch_time >= 5:
+            current_rpm_color_index = (current_rpm_color_index + 1) % len(rpm_colors)
+            last_rpm_switch_time = current_time
+        rpm_color = rpm_colors[current_rpm_color_index]
+        rpm_min, rpm_max = rpm_ranges[rpm_color]
+        rpm = random.randint(rpm_min, rpm_max)
+
+        color = 'green' if rpm < 2000 else 'yellow' if rpm < 4000 else 'red'
+
+      
+        line, = ax.plot([lon1, lon2], [lat1, lat2], color=color, linewidth=2, zorder=1)
+        drawn_segments.append(line)
+
+    scatter.set_offsets(np.array([[longitudes[-1], latitudes[-1]]]))
+
+    if len(latitudes) > 1:
+        ax.relim()
+        ax.autoscale_view()
+
+    lap_text.set_text(f"First lap in progress\nPoints collected: {len(latitudes)}")
+    fig.canvas.draw()
+    fig.canvas.flush_events()
+
+def update_plot_lap_two_onwards():
+    if lap_count >= 1 and first_lap_trajectory is not None:
+        first_lap_lats, first_lap_longs = first_lap_trajectory
+
         if len(latitudes) > 1:
-            ax.relim()
-            ax.autoscale_view()
-        
-        # Update lap count text
-        lap_text.set_text(f"First lap in progress\nPoints collected: {len(latitudes)}")
-        
-        # Refresh the plot
+            lat1, lat2 = latitudes[-2], latitudes[-1]
+            lon1, lon2 = longitudes[-2], longitudes[-1]
+
+            global current_rpm_color_index, last_rpm_switch_time
+            current_time = time.time()
+            if current_time - last_rpm_switch_time >= 5:
+                current_rpm_color_index = (current_rpm_color_index + 1) % len(rpm_colors)
+                last_rpm_switch_time = current_time
+            rpm_color = rpm_colors[current_rpm_color_index]
+            rpm_min, rpm_max = rpm_ranges[rpm_color]
+            rpm = random.randint(rpm_min, rpm_max)
+
+            color = 'green' if rpm < 2000 else 'yellow' if rpm < 4000 else 'red'
+
+            line, = ax.plot([lon1, lon2], [lat1, lat2], color=color, linewidth=2, zorder=1)
+            drawn_segments.append(line)
+
+        upper_lats = [lat + offset for lat in first_lap_lats]
+        lower_lats = [lat - offset for lat in first_lap_lats]
+        upper_line.set_data(first_lap_longs, upper_lats)
+        lower_line.set_data(first_lap_longs, lower_lats)
+        scatter.set_offsets(np.array([[longitudes[-1], latitudes[-1]]]))
+
+        ax.relim()
+        ax.autoscale_view()
+
+        lap_text.set_text(f"Laps completed: {lap_count}\nCurrent lap: {lap_count + 1}")
+        time_text.set_text(f"Last Lap Time: {last_lap_time:.2f} s")
         fig.canvas.draw()
         fig.canvas.flush_events()
 
-def update_plot_lap_two_onwards():
-    """
-    Update the plot for lap two onwards - showing track boundaries based on first lap
-    """
-    global lap_count, latitudes, longitudes, first_lap_trajectory
-    
-    if lap_count >= 1 and first_lap_trajectory is not None:
-        # Unpack the first lap trajectory
-        first_lap_lats, first_lap_longs = first_lap_trajectory
-        
-        if len(latitudes) > 0:
-            # Create offset data for the track boundaries
-            upper_lats = [lat + offset for lat in first_lap_lats]
-            lower_lats = [lat - offset for lat in first_lap_lats]
-            
-            # Update the track lines
-            # main_line.set_data(first_lap_longs, first_lap_lats)
-            upper_line.set_data(first_lap_longs, upper_lats)
-            lower_line.set_data(first_lap_longs, lower_lats)
-            
-            # Update scatter data with just the most recent position
-            scatter.set_offsets(np.array([[longitudes[-1], latitudes[-1]]]))
-        
-            # Adjust plot limits if needed
-            ax.relim()
-            ax.autoscale_view()
-            
-            # Update lap count text
-            lap_text.set_text(f"Laps completed: {lap_count}\nCurrent lap: {lap_count + 1}")
-            
-            # Refresh the plot
-            fig.canvas.draw()
-            fig.canvas.flush_events()
-
 def check_lap_completion(lat, lon):
-    """
-    Check if a lap has been completed based on coordinate thresholds
-    and reset point counter after each lap
-    """
     global lap_count, first_lap_completed, first_lap_trajectory, latitudes, longitudes
-    
-    # Need at least min_points_for_lap points to consider a lap completion
-    if len(latitudes) < min_points_for_lap:
+    global lap_start_time, last_lap_time
+
+    if start_lat is None or start_lon is None:
         return
-    
-    # Get starting point coordinates
-    start_lat, start_lon = latitudes[0], longitudes[0]
-    
-    # Check if current position is within threshold of starting point
+
     lat_diff = abs(lat - start_lat)
     lon_diff = abs(lon - start_lon)
-    
-    # If both latitude and longitude are within threshold, consider lap completed
-    if lat_diff < lap_threshold and lon_diff < lap_threshold:
+
+    if lat_diff < lap_threshold and lon_diff < lap_threshold and len(latitudes) > min_points_for_lap:
         lap_count += 1
-        print(f"Lap {lap_count} completed!")
-        
-        # If this is the first lap completion, save the trajectory
+        now = time.time()
+        if lap_start_time:
+            last_lap_time = now - lap_start_time
+        lap_start_time = now
+        print(f"Lap {lap_count} completed in {last_lap_time:.2f} seconds!")
+
         if not first_lap_completed:
             first_lap_completed = True
             first_lap_trajectory = save_first_lap_trajectory(latitudes.copy(), longitudes.copy())
-            print("First lap trajectory saved for track boundaries")
-        
-        # Reset the points for the next lap
+
+        # Clear previous trail segments
+        for segment in drawn_segments:
+            segment.remove()
+        drawn_segments.clear()
+
+       
         latitudes.clear()
         longitudes.clear()
-        
-        # Add the current point as the first point of the new lap
         latitudes.append(lat)
         longitudes.append(lon)
-        
-        print(f"Starting lap {lap_count + 1} data collection")
-# Main program loop
+
+
 try:
-    print("GPS Tracking started. Press Ctrl+C to exit.")
-    
-    while True:
-        if arduinoData.in_waiting > 0:
-            data_line = arduinoData.readline().decode('utf-8').strip()
-            parts = data_line.split(',')
-            if len(parts) == 3:
-                try:
-                    lat = float(parts[0])
-                    lon = float(parts[1])
-                    if lat != 0.0 and lon != 0.0:  # Filter out invalid readings
-                        # Add to trajectory
-                        latitudes.append(lat)
-                        longitudes.append(lon)
-                        
-                        # Check if lap is completed
-                        check_lap_completion(lat, lon)
-                        
-                        # Update visualization based on lap count
-                        if not first_lap_completed:
-                            update_lap_one()
-                        else:
-                            update_plot_lap_two_onwards()
-                except ValueError:
-                    print("Invalid data format")
-                    
+    if arduinoData:
+        print("GPS Tracking started. Press Ctrl+C to exit.")
+
+        while True:
+            if arduinoData.in_waiting > 0:
+                data_line = arduinoData.readline().decode('utf-8').strip()
+                parts = data_line.split(',')
+
+                if len(parts) == 2:
+                    try:
+                        lat = float(parts[0])
+                        lon = float(parts[1])
+
+                        if lat != 0.0 and lon != 0.0:
+                            if start_lat is None or start_lon is None:
+                                start_lat, start_lon = lat, lon
+                                lap_start_time = time.time()
+                                draw_virtual_start_line(start_lat, start_lon)
+
+                            latitudes.append(lat)
+                            longitudes.append(lon)
+
+                            check_lap_completion(lat, lon)
+
+                            if not first_lap_completed:
+                                update_lap_one()
+                            else:
+                                update_plot_lap_two_onwards()
+                    except ValueError:
+                        print(f"Invalid data: {data_line}")
 except KeyboardInterrupt:
-    print("\nData collection stopped by user")
+    print("\nData collection stopped by user.")
 finally:
-    # Clean up
-    arduinoData.close()
+    if 'arduinoData' in locals() and arduinoData:
+        arduinoData.close()
     plt.close()
     print("GPS Tracking ended.")
