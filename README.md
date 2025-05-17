@@ -13,12 +13,13 @@ Live GPS lap tracking and visualization system using Neo M8N module + Python.
 - *Data Visualization*  
   GPS coordinates are plotted using *matplotlib*. The first lap's data is used to create the track layout.
 
-- *Lap Counter*  
-  A lap is detected when the live GPS location returns within a *0.00002 threshold (latitude/longitude)* of the original starting point.
+- *Lap Counter and Lap Timer*  
+  A lap is detected when the live GPS location returns within a *0.00003 threshold (latitude/longitude)* of the original starting point, and the lap time is plotted as well.
 
 - *Live Tracking*  
   From the *second lap onwards*, a live location bubble is shown moving along the plotted track, while the track itself remains based on the first lap's recorded data.
-
+- *RPM Trail Visualisation*
+  Creates a coloured RPM trail
 ## Requirements
 
 - Neo M8N GPS Module  
