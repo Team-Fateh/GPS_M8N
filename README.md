@@ -17,8 +17,12 @@ Live GPS lap tracking and visualization system using a **Neo M8N GPS module** + 
 
 ---
 ## Receiving and Parsing NMEA data 
- 
- - This code was referred to from micropeta. http://micropeta.com/video122
+
+- The microcontroller being used to receive and parse gps data is an STM32F446RE
+- USART1 was used to receive NMEA data and USART2 was used to print the latitudes and longitudes to the serial port.
+![Screenshot 2025-06-23 045610](https://github.com/user-attachments/assets/85d4c182-5499-406f-b7a5-2a81e8972dc1)
+
+- This code was referred to from micropeta. http://micropeta.com/video122
 
 - **gpsParse(char *strParse)**
   -This function parses incoming NMEA GPS sentences ($GPGGA, $GPGLL, or $GPRMC) to extract latitude and longitude data. It converts the NMEA-format coordinates into  decimal degrees using nmeaToDecimal() and sends the formatted result over UART.
@@ -31,10 +35,15 @@ Live GPS lap tracking and visualization system using a **Neo M8N GPS module** + 
    -Converts the raw NMEA latitude/longitude to standard decimal degrees.
    -Formats the result as a comma-separated string.
    -Transmits the final coordinates over UART2.
+  
+![Screenshot 2025-06-29 125259](https://github.com/user-attachments/assets/945bb86b-47a1-4a28-8e22-2d4c70a8bcdd)
+
 
 - **nmeaToDecimal(float coordinate)**
 
   - Converts a GPS coordinate from NMEA format (ddmm.mmmm) to standard decimal degrees (dd.dddddd).
+  
+![image](https://github.com/user-attachments/assets/7dbfc5f3-39c4-4b90-a4f3-74a90eade44b)
 
 
 ##  Python Live Tracking Features
