@@ -4,7 +4,40 @@ Live GPS lap tracking and visualization system using a **Neo M8N GPS module** + 
 
 ---
 
-##  Features
+##  Requirements
+
+- **Hardware**
+  - Neo M8N GPS Module  
+  - Microcontroller (e.g., Arduino)
+
+- **Python Libraries**
+  - `serialpy`  
+  - `matplotlib`  
+  - `numpy`
+
+---
+## Receiving and Parsing NMEA data 
+ 
+ - This code was referred to from micropeta. http://micropeta.com/video122
+
+- **gpsParse(char *strParse)**
+  -This function parses incoming NMEA GPS sentences ($GPGGA, $GPGLL, or $GPRMC) to extract latitude and longitude data. It converts the NMEA-format coordinates into  decimal degrees using nmeaToDecimal() and sends the formatted result over UART.
+
+   How it works:
+
+   Checks which NMEA sentence type is received (GGA, GLL, or RMC).
+
+   -Uses sscanf to extract latitude, longitude, and directional info.
+   -Converts the raw NMEA latitude/longitude to standard decimal degrees.
+   -Formats the result as a comma-separated string.
+   -Transmits the final coordinates over UART2.
+
+- **nmeaToDecimal(float coordinate)**
+
+  - Converts a GPS coordinate from NMEA format (ddmm.mmmm) to standard decimal degrees (dd.dddddd).
+
+
+##  Python Live Tracking Features
 
 - **GPS Data Acquisition**  
   High-accuracy GPS data is received using the [NeoGPS](https://github.com/SlashDevin/NeoGPS) library.
@@ -88,17 +121,6 @@ Continuously:
 
 
 ---
-
-##  Requirements
-
-- **Hardware**
-  - Neo M8N GPS Module  
-  - Microcontroller (e.g., Arduino)
-
-- **Python Libraries**
-  - `serialpy`  
-  - `matplotlib`  
-  - `numpy`
 
 ---
 
