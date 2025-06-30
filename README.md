@@ -22,6 +22,13 @@ Live GPS lap tracking and visualization system using a **Neo M8N GPS module** + 
 - USART1 was used to receive NMEA data and USART2 was used to print the latitudes and longitudes to the serial port.
 ![Screenshot 2025-06-23 045610](https://github.com/user-attachments/assets/85d4c182-5499-406f-b7a5-2a81e8972dc1)
 
+
+| STM Pin| GPS Pin | Function |
+| --- | --- |------|
+| PA10 | TX |   RX   |
+| PA9| RX |   TX   |
+
+
 - This code was referred to from micropeta. http://micropeta.com/video122
 
 - **gpsParse(char *strParse)**
